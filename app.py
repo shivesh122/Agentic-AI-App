@@ -242,7 +242,7 @@ def analyze_and_share():
             Tone: Professional, enthusiastic, impact-driven. Do NOT use generic intro/outro text. Output only the raw post.
             Project Context: {code_context}"""
             
-            completion_li = client.chat.completions.create(model="llama3-70b-8192", messages=[{"role": "user", "content": prompt_linkedin}])
+            completion_li = client.chat.completions.create(model="openai/gpt-oss-20b", messages=[{"role": "user", "content": prompt_linkedin}])
             linkedin_post_content = completion_li.choices[0].message.content.strip()
 
             prompt_readme = f"""You are a Staff Data Engineer creating an enterprise-grade README.md for a portfolio project. Analyze the context and write the markdown.
@@ -255,7 +255,7 @@ def analyze_and_share():
             Use extensive Markdown styling (tables, bold, blockquotes). Output STRICTLY raw Markdown.
             Project Context: {code_context}"""
             
-            completion_readme = client.chat.completions.create(model="llama3-70b-8192", messages=[{"role": "user", "content": prompt_readme}])
+            completion_readme = client.chat.completions.create(model="openai/gpt-oss-20b", messages=[{"role": "user", "content": prompt_readme}])
             readme_content = completion_readme.choices[0].message.content.strip()
             
             # Clean up potential markdown formatting wrapping from LLM
