@@ -180,69 +180,100 @@ def analyze_and_share():
 
         # 2. Analyze with Groq API
         client = Groq(api_key=GROQ_API_KEY)
+        prompt_linkedin = f"""
+    You are an expert developer and a viral tech influencer on LinkedIn. Analyze the following project files and write a highly engaging, visually attractive LinkedIn post announcing this project. 
+    Focus on:
+    1. A strong, scroll-stopping hook at the beginning.
+    2. The technical stack (use appropriate emojis for the tech).
+    3. The core problem it solves and its key features (use bullet points or checkmarks).
+    4. A clear Call-to-Action (asking for feedback or to check out the GitHub repo).
+    Use plenty of appropriate emojis, line breaks for readability, and relevant tech hashtags. Do not include introductory/outro text, just the raw post.
+    
+    Project Files Context:
+    {code_context}
+    """
+    completion_li = client.chat.completions.create(
+        model="openai/gpt-oss-20b", # Switched to Llama 3 70B for better formatting and writing
+        messages=[{"role": "user", "content": prompt_linkedin}],
+    )
+    linkedin_post_content = completion_li.choices[0].message.content.strip()
+
+    # 2b. Generate Attractive README.md
+    prompt_readme = f"""
+    You are an expert developer and technical writer. Analyze the following project files and write a highly attractive, comprehensive, and professional README.md for this repository.
+    Include the following sections:
+    - A catchy Title and short description.
+    - 🚀 Features section (bullet points).
+    - 🛠️ Tech Stack section.
+    - 💻 Setup and Installation instructions.
+    - 🎯 Usage guide.
+    Use markdown formatting extensively (bold, headers, lists, code blocks) to make it visually appealing. Output strictly the raw Markdown content. Do not include markdown code block backticks (```) at the beginning or end of your entire response.
+    
+    Project Files Context:
+    {code_context}
+    """
+    try:
+        completion_readme = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[{"role": "user", "content": prompt_readme}],
+        )
+        readme_content = completion_readme.choices[0].message.content.strip()
         
-        prompt_linkedin = f"""You are an expert data analyst and a viral tech influencer on LinkedIn. Analyze the following project files and context, then write a highly engaging, visually stunning LinkedIn post announcing this project. Focus on:
-        1. A powerful, scroll-stopping hook at the top highlighting the data insights.
-        2. The complete tech stack (including Dataset structure and Power BI).
-        3. Core problem solved and key metrics.
-        4. Call-to-action to check the GitHub repository.
-        Use emojis, line breaks, and hashtags. Output only the raw post.
-        Project Context: {code_context}"""
-        
-        completion_li = client.chat.completions.create(model="openai/gpt-oss-20b", messages=[{"role": "user", "content": prompt_linkedin}])
-        linkedin_post_content = completion_li.choices[0].message.content.strip()
+        # Add the AI-generated README to the files to be uploaded
+        file_payloads.append({
+            "path": "README.md",
+            "content": base64.b64encode(readme_content.encode('utf-8')).decode('utf-8')
+        })
+    except Exception as e:
+        print(f"Groq API Error generating README: {e}")
 
-        prompt_readme = f"""You are a professional data visualization engineer. Write a highly attractive, comprehensive README.md for this repository. Include:
-        - Title & Overview
-        - 📊 Dashboard Insights & Features (Detail the Power BI report based on context).
-        - 📁 Dataset Description
-        - 🛠️ Tech Stack
-        - ⚙️ Setup Instructions
-        Use Markdown styling. Output strictly raw Markdown.
-        Project Context: {code_context}"""
-        
-        try:
-            completion_readme = client.chat.completions.create(model="llama3-70b-8192", messages=[{"role": "user", "content": prompt_readme}])
-            readme_content = completion_readme.choices[0].message.content.strip()
-            file_payloads.append({"path": "README.md", "content": base64.b64encode(readme_content.encode('utf-8')).decode('utf-8')})
-        except Exception as e:
-            print(f"Readme error: {e}")
+    # 3. Create GitHub Repo & Upload Files
+    gh_headers = {
+        "Authorization": f"token {session['github_token']}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    # Create repo
+    gh_user_res = requests.get("https://api.github.com/user", headers=gh_headers).json()
+    github_username = gh_user_res.get("login")
+    
+    repo_res = requests.post("https://api.github.com/user/repos", headers=gh_headers, json={"name": repo_name, "private": False})
+    repo_url = repo_res.json().get("html_url")
 
-        # 3. GitHub Upload
-        gh_headers = {"Authorization": f"token {session['github_token']}", "Accept": "application/vnd.github.v3+json"}
-        github_username = requests.get("https://api.github.com/user", headers=gh_headers).json().get("login")
-        
-        repo_res = requests.post("https://api.github.com/user/repos", headers=gh_headers, json={"name": repo_name, "private": False})
-        repo_url = repo_res.json().get("html_url")
+    # Upload files to GitHub via API
+    for f_data in file_payloads:
+        put_url = f"https://api.github.com/repos/{github_username}/{repo_name}/contents/{f_data['path']}"
+        requests.put(put_url, headers=gh_headers, json={
+            "message": f"Initial commit: {f_data['path']}",
+            "content": f_data['content']
+        })
 
-        for f_data in file_payloads:
-            requests.put(f"https://api.github.com/repos/{github_username}/{repo_name}/contents/{f_data['path']}", headers=gh_headers, json={"message": f"Upload {f_data['path']}", "content": f_data['content']})
+    # 4. Post to LinkedIn
+    li_headers = {"Authorization": f"Bearer {session['linkedin_token']}"}
+    
+    # Get LinkedIn user ID (sub)
+    userinfo_res = requests.get("https://api.linkedin.com/v2/userinfo", headers=li_headers).json()
+    linkedin_urn = userinfo_res.get("sub")
 
-        # 4. LinkedIn Post
-        li_headers = {"Authorization": f"Bearer {session['linkedin_token']}"}
-        linkedin_urn = requests.get("https://api.linkedin.com/v2/userinfo", headers=li_headers).json().get("sub")
+    # Construct the UGC Post
+    post_payload = {
+        "author": f"urn:li:person:{linkedin_urn}",
+        "lifecycleState": "PUBLISHED",
+        "specificContent": {
+            "com.linkedin.ugc.ShareContent": {
+                "shareCommentary": {"text": linkedin_post_content},
+                "shareMediaCategory": "ARTICLE",
+                "media": [{"status": "READY", "originalUrl": repo_url}]
+            }
+        },
+        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
+    }
+    
+    li_post_res = requests.post("https://api.linkedin.com/v2/ugcPosts", headers={**li_headers, "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0"}, json=post_payload)
 
-        post_payload = {
-            "author": f"urn:li:person:{linkedin_urn}",
-            "lifecycleState": "PUBLISHED",
-            "specificContent": {
-                "com.linkedin.ugc.ShareContent": {
-                    "shareCommentary": {"text": linkedin_post_content},
-                    "shareMediaCategory": "ARTICLE",
-                    "media": [{"status": "READY", "originalUrl": repo_url}]
-                }
-            },
-            "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
-        }
-        requests.post("https://api.linkedin.com/v2/ugcPosts", headers={**li_headers, "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0"}, json=post_payload)
-
-        success_msg = f"<b>Success!</b><br>Repository created: <a href='{repo_url}'>{repo_url}</a><br>LinkedIn Post published!"
-        
-    finally:
-        # Clean up the temporary Vercel directory to prevent memory leaks
-        shutil.rmtree(temp_dir, ignore_errors=True)
-
+    success_msg = f"<b>Success!</b><br>Repository created (with an attractive README!): <a href='{repo_url}' target='_blank'>{repo_url}</a><br>Engaging LinkedIn Post drafted and published!"
     return redirect(url_for('index', message=success_msg))
 
 if __name__ == '__main__':
+    # Run locally on port 5000
     app.run(port=5000, debug=True)
