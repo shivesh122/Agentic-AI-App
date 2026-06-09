@@ -243,14 +243,20 @@ def analyze_and_share():
             client = Groq(api_key=GROQ_API_KEY)
             
             # --- AI TASK 1: LinkedIn Viral & Professional Post ---
-            prompt_linkedin = f"""You are an elite Tech Influencer and Senior Developer. Analyze the following project context and write a highly engaging, professional LinkedIn post announcing this project to your network. 
-            Rules:
-            1. Use a scroll-stopping hook (Why does this project matter?).
-            2. Use the STAR method: What was the Problem? What is your Solution? What is the technical Impact?
-            3. List the core Tech Stack clearly with corresponding emojis.
-            4. Include a Call-to-Action inviting recruiters/peers to check out the GitHub repo and share feedback.
-            5. Use formatting (line breaks, bullet points) to make it highly readable.
-            Output ONLY the raw post content. No introductory text.
+            prompt_linkedin = f"""You are an elite AIML Developer and Data Analyst sharing your latest project on LinkedIn. Write a highly attractive, viral, and professional post.
+            
+            Strict Rules for Formatting & Style:
+            1. BOLD TEXT: LinkedIn does not support markdown (**). You MUST use Unicode bold characters (e.g., 𝗯𝗼𝗹𝗱 𝘁𝗲𝘅𝘁) for your section headers and most important keywords so they stand out.
+            2. EMOJIS: Use a rich variety of professional emojis (🚀, 📊, 🧠, 💡, 🛠️, 📈) to structure the post and act as visual bullet points. Do not hold back on emojis; make it highly scannable.
+            3. STRUCTURE:
+               - 𝗛𝗼𝗼𝗸: A scroll-stopping opening statement about the value of this project.
+               - 𝗧𝗵𝗲 𝗣𝗿𝗼𝗯𝗹𝗲𝗺: What challenge does this solve?
+               - 𝗧𝗵𝗲 𝗦𝗼𝗹𝘂𝘁𝗶𝗼𝗻 & 𝗜𝗻𝘀𝗶𝗴𝗵𝘁𝘀: Highlight 2-3 impressive metrics, features, or dashboard capabilities.
+               - 𝗧𝗲𝗰𝗵 𝗦𝘁𝗮𝗰𝗸: List the tools used with distinct emojis.
+            4. VISUAL CONTEXT: A rich visual preview card of the GitHub repository will automatically attach to this post. Make sure to tell the reader to "check out the code and dashboard in the link below 👇".
+            5. CTA: End with an engaging question for your network to drive comments.
+            
+            Output ONLY the raw post content. Do not include any conversational filler or introductions.
             Project Context: {code_context}"""
             
             completion_li = client.chat.completions.create(model="openai/gpt-oss-20b", messages=[{"role": "user", "content": prompt_linkedin}])
