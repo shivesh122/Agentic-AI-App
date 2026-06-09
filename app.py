@@ -28,19 +28,19 @@ HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AI Project Analyzer & Publisher</title>
+    <title>AI Data Project Analyzer & Publisher</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; }
         .btn { display: inline-block; padding: 10px 15px; margin: 5px 0; color: white; text-decoration: none; border-radius: 5px; }
         .github { background-color: #333; }
         .linkedin { background-color: #0077b5; }
-        .submit { background-color: #28a745; border: none; cursor: pointer; font-size: 16px; }
-        input[type="text"] { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; }
+        .submit { background-color: #28a745; border: none; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        input[type="text"], input[type="file"] { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;}
         .status { padding: 10px; margin-bottom: 15px; border-radius: 4px; background: #e9ecef; }
     </style>
 </head>
 <body>
-    <h2>Project Analyzer & Publisher</h2>
+    <h2>Data Project Analyzer & Publisher</h2>
     
     <div class="status">
         <strong>Status:</strong><br>
@@ -49,12 +49,12 @@ HTML_TEMPLATE = """
     </div>
 
     {% if github_connected and linkedin_connected %}
-    <form action="/analyze-and-share" method="POST">
-        <label><strong>Local Project Folder Path:</strong></label><br>
-        <input type="text" name="folder_path" placeholder="/Users/name/projects/my-app" required>
+    <form action="/analyze-and-share" method="POST" enctype="multipart/form-data">
+        <label><strong>Upload Project (.zip file):</strong></label><br>
+        <input type="file" name="project_zip" accept=".zip" required>
         
         <label><strong>New GitHub Repository Name:</strong></label><br>
-        <input type="text" name="repo_name" placeholder="my-awesome-app" required>
+        <input type="text" name="repo_name" placeholder="my-data-analysis-project" required>
         
         <button type="submit" class="btn submit">Analyze, Upload & Post</button>
     </form>
@@ -71,10 +71,6 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# ---------------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------------
-
 @app.route('/')
 def index():
     github_connected = 'github_token' in session
@@ -88,7 +84,9 @@ def index():
 # --- GitHub OAuth ---
 @app.route('/login/github')
 def login_github():
-    url = f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&scope=repo"
+    # Vercel gives us the host URL via the request object, so callbacks are dynamic
+    callback_url = request.host_url.rstrip('/') + "/callback/github"
+    url = f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&scope=repo&redirect_uri={callback_url}"
     return redirect(url)
 
 @app.route('/callback/github')
@@ -103,58 +101,85 @@ def callback_github():
 # --- LinkedIn OAuth ---
 @app.route('/login/linkedin')
 def login_linkedin():
-    redirect_uri = "http://localhost:5000/callback/linkedin"
+    callback_url = request.host_url.rstrip('/') + "/callback/linkedin"
     scope = "openid profile email w_member_social"
-    url = f"https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id={LINKEDIN_CLIENT_ID}&redirect_uri={redirect_uri}&scope={scope}"
+    url = f"https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id={LINKEDIN_CLIENT_ID}&redirect_uri={callback_url}&scope={scope}"
     return redirect(url)
 
 @app.route('/callback/linkedin')
 def callback_linkedin():
     code = request.args.get('code')
-    redirect_uri = "http://localhost:5000/callback/linkedin"
+    callback_url = request.host_url.rstrip('/') + "/callback/linkedin"
     response = requests.post("https://www.linkedin.com/oauth/v2/accessToken",
                              data={"grant_type": "authorization_code", "code": code, 
                                    "client_id": LINKEDIN_CLIENT_ID, "client_secret": LINKEDIN_CLIENT_SECRET, 
-                                   "redirect_uri": redirect_uri})
+                                   "redirect_uri": callback_url})
     session['linkedin_token'] = response.json().get('access_token')
     return redirect(url_for('index'))
 
-# --- Main Logic: Analyze, GitHub Upload, LinkedIn Post ---
+# --- Main Logic: Extract, Analyze, Upload, Post ---
 @app.route('/analyze-and-share', methods=['POST'])
 def analyze_and_share():
-    folder_path = request.form.get('folder_path')
+    if 'project_zip' not in request.files:
+        return redirect(url_for('index', message="No file uploaded!"))
+        
+    zip_file = request.files['project_zip']
     repo_name = request.form.get('repo_name')
     
-    if not os.path.isdir(folder_path):
-        return redirect(url_for('index', message="Invalid directory path!"))
+    if zip_file.filename == '':
+        return redirect(url_for('index', message="Empty file submitted!"))
 
-    # 1. Read files to analyze
     code_context = ""
     file_payloads = []
     
-    # Simple recursive directory walk (skipping hidden folders & virtual environments)
-    for root, dirs, files in os.walk(folder_path):
-        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['venv', 'node_modules', '__pycache__']]
-        for file in files:
-            if not file.startswith('.'):
-                file_path = os.path.join(root, file)
-                rel_path = os.path.relpath(file_path, folder_path)
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        # Keep prompt size manageable for Groq
-                        if len(code_context) < 15000: 
-                            code_context += f"\\n--- File: {rel_path} ---\\n{content[:2000]}\\n"
-                        
-                        file_payloads.append({
-                            "path": rel_path.replace("\\", "/"),
-                            "content": base64.b64encode(content.encode('utf-8')).decode('utf-8')
-                        })
-                except Exception:
-                    pass # Skip binary or unreadable files
+    # Create a temporary directory that Vercel allows us to write to
+    temp_dir = tempfile.mkdtemp()
+    
+    try:
+        # Save and extract the zip file
+        zip_path = os.path.join(temp_dir, secure_filename(zip_file.filename))
+        zip_file.save(zip_path)
+        
+        extract_dir = os.path.join(temp_dir, "extracted")
+        os.makedirs(extract_dir, exist_ok=True)
+        
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_dir)
 
-    # 2. Analyze with Groq API
-    client = Groq(api_key=GROQ_API_KEY)
+        # Walk through the extracted files
+        for root, dirs, files in os.walk(extract_dir):
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['venv', 'node_modules', '__pycache__', 'env']]
+            for file in files:
+                if not file.startswith('.'):
+                    file_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(file_path, extract_dir)
+                    normalized_path = rel_path.replace("\\", "/")
+                    
+                    if file.lower().endswith('.pbix'):
+                        try:
+                            with open(file_path, 'rb') as f:
+                                binary_content = f.read()
+                            code_context += f"\n--- File Meta: {normalized_path} ---\n[CRITICAL CONTEXT: This file is a functional, interactive Power BI Dashboard file. Highlight its inclusion prominently.]\n"
+                            file_payloads.append({"path": normalized_path, "content": base64.b64encode(binary_content).decode('utf-8')})
+                        except Exception as e:
+                            print(f"Error reading pbix: {e}")
+                    else:
+                        try:
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                content = f.read()
+                            if len(code_context) < 15000: 
+                                code_context += f"\n--- File: {normalized_path} ---\n{content[:2000]}\n"
+                            file_payloads.append({"path": normalized_path, "content": base64.b64encode(content.encode('utf-8')).decode('utf-8')})
+                        except Exception:
+                            try:
+                                with open(file_path, 'rb') as f:
+                                    b_content = f.read()
+                                file_payloads.append({"path": normalized_path, "content": base64.b64encode(b_content).decode('utf-8')})
+                            except Exception:
+                                pass
+
+        # 2. Analyze with Groq API
+        client = Groq(api_key=GROQ_API_KEY)
     
     # 2a. Generate Attractive LinkedIn Post
     prompt_linkedin = f"""
