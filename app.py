@@ -22,7 +22,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "fallback-secret-key-for-local")
 
 # ---------------------------------------------------------------------------
-# Premium UI Template (Tailwind CSS + Loading Animations)
+# Upgraded Modern HTML Template with Loading UI
 # ---------------------------------------------------------------------------
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -30,104 +30,105 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Project Publisher | Enterprise Edition</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>AI Portfolio Publisher</title>
     <style>
-        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
-        .loader { border-top-color: #3b82f6; animation: spinner 1.5s linear infinite; }
-        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        :root { --primary: #2563eb; --success: #16a34a; --bg: #f8fafc; --card: #ffffff; --text: #1e293b; --border: #e2e8f0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; padding: 40px 20px; margin: 0; }
+        .container { background: var(--card); max-width: 650px; width: 100%; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 30px; border: 1px solid var(--border); }
+        h2 { text-align: center; margin-top: 0; color: #0f172a; font-weight: 700; font-size: 24px; }
+        p.subtitle { text-align: center; color: #64748b; margin-bottom: 30px; font-size: 14px; }
+        
+        .status-board { display: flex; gap: 15px; margin-bottom: 25px; }
+        .status-card { flex: 1; padding: 15px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: #fdfdfd; }
+        .btn { padding: 10px 16px; font-weight: 600; text-decoration: none; border-radius: 6px; font-size: 14px; transition: all 0.2s; text-align: center; cursor: pointer; border: none; }
+        .btn-github { background-color: #24292e; color: white; }
+        .btn-github:hover { background-color: #1b1f23; }
+        .btn-linkedin { background-color: #0a66c2; color: white; }
+        .btn-linkedin:hover { background-color: #004182; }
+        .btn-submit { background-color: var(--primary); color: white; width: 100%; padding: 14px; font-size: 16px; margin-top: 10px; }
+        .btn-submit:hover { background-color: #1d4ed8; }
+        .btn-submit:disabled { background-color: #94a3b8; cursor: not-allowed; }
+        
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #334155; }
+        input[type="text"] { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; font-size: 14px; transition: border 0.2s; }
+        input[type="text"]:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        
+        .file-upload { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 25px; text-align: center; background: #f8fafc; transition: all 0.2s; cursor: pointer; position: relative;}
+        .file-upload:hover { border-color: var(--primary); background: #f1f5f9; }
+        .file-upload input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .file-icon { font-size: 30px; margin-bottom: 10px; display: block; }
+        
+        .alert { padding: 16px; border-radius: 8px; margin-top: 20px; font-size: 14px; line-height: 1.5; }
+        .alert-success { background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+        .alert-error { background-color: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+        
+        #loading-overlay { display: none; margin-top: 20px; text-align: center; padding: 20px; border-radius: 8px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a;}
+        .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid rgba(37, 99, 235, 0.3); border-radius: 50%; border-top-color: var(--primary); animation: spin 1s ease-in-out infinite; margin-bottom: 10px;}
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen font-sans text-slate-800 flex items-center justify-center p-4">
-    
-    <div class="glass max-w-2xl w-full rounded-2xl shadow-2xl overflow-hidden border border-white/20">
-        <div class="bg-blue-600 p-6 text-center">
-            <h1 class="text-3xl font-extrabold text-white tracking-tight">AutoPublisher AI</h1>
-            <p class="text-blue-200 mt-2 text-sm font-medium">Enterprise Data Analytics Deployment Engine</p>
+<body>
+    <div class="container">
+        <h2>🚀 AI Project Publisher</h2>
+        <p class="subtitle">Instantly analyze your code, write an HR-ready README, and post to LinkedIn.</p>
+        
+        <div class="status-board">
+            <div class="status-card">
+                <span><img src="https://github.githubassets.com/favicons/favicon.svg" width="16" style="vertical-align: middle; margin-right: 5px;"> GitHub</span>
+                {% if github_connected %}<span style="color: var(--success); font-weight:bold;">✓ Connected</span>{% else %}<a href="/login/github" class="btn btn-github">Connect</a>{% endif %}
+            </div>
+            <div class="status-card">
+                <span><img src="https://static.licdn.com/aero-v1/sc/h/al2o9zrvru7aqj8e1x2rzsrca" width="16" style="vertical-align: middle; margin-right: 5px;"> LinkedIn</span>
+                {% if linkedin_connected %}<span style="color: var(--success); font-weight:bold;">✓ Connected</span>{% else %}<a href="/login/linkedin" class="btn btn-linkedin">Connect</a>{% endif %}
+            </div>
         </div>
 
-        <div class="p-8">
-            <div class="flex gap-4 mb-8">
-                <div class="flex-1 p-4 rounded-xl border flex items-center justify-between {% if github_connected %}bg-green-50 border-green-200{% else %}bg-slate-50 border-slate-200{% endif %}">
-                    <span class="font-semibold flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                        GitHub
-                    </span>
-                    {% if github_connected %}
-                        <span class="text-green-600 font-bold">✓ Connected</span>
-                    {% else %}
-                        <a href="/login/github" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg transition">Connect</a>
-                    {% endif %}
-                </div>
-
-                <div class="flex-1 p-4 rounded-xl border flex items-center justify-between {% if linkedin_connected %}bg-blue-50 border-blue-200{% else %}bg-slate-50 border-slate-200{% endif %}">
-                    <span class="font-semibold flex items-center gap-2">
-                        <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
-                        LinkedIn
-                    </span>
-                    {% if linkedin_connected %}
-                        <span class="text-blue-600 font-bold">✓ Connected</span>
-                    {% else %}
-                        <a href="/login/linkedin" class="px-4 py-2 bg-[#0077b5] hover:bg-[#006097] text-white text-sm font-bold rounded-lg transition">Connect</a>
-                    {% endif %}
-                </div>
+        {% if github_connected and linkedin_connected %}
+        <form action="/analyze-and-share" method="POST" enctype="multipart/form-data" id="uploadForm">
+            
+            <div class="form-group">
+                <label>Repository Name (No spaces)</label>
+                <input type="text" name="repo_name" placeholder="e.g., ai-portfolio-generator" pattern="[a-zA-Z0-9-_]+" required>
             </div>
 
-            {% if message %}
-            <div class="mb-6 p-4 rounded-lg bg-slate-100 border-l-4 border-blue-500 shadow-inner">
-                {{ message | safe }}
-            </div>
-            {% endif %}
-
-            {% if github_connected and linkedin_connected %}
-            <form id="uploadForm" action="/analyze-and-share" method="POST" enctype="multipart/form-data" class="space-y-6">
-                
-                <div>
-                    <label class="block text-sm font-bold text-slate-700 mb-2">Upload Project Archive (.zip)</label>
-                    <div class="relative border-2 border-dashed border-slate-300 rounded-xl p-8 hover:bg-slate-50 transition text-center cursor-pointer">
-                        <input type="file" name="project_zip" accept=".zip" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                        <div class="text-slate-500">
-                            <svg class="mx-auto h-12 w-12 mb-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                            <span class="font-semibold text-blue-600">Click to upload</span> or drag and drop
-                            <p class="text-xs mt-1">Must contain Dataset & Power BI (.pbix) files</p>
-                        </div>
-                    </div>
+            <div class="form-group">
+                <label>Upload Project (.zip format)</label>
+                <div class="file-upload">
+                    <span class="file-icon">📁</span>
+                    <span id="file-name">Drag & drop your .zip file here, or click to browse</span>
+                    <br><small style="color: #64748b;">Max size: 4.5MB (Vercel Limit)</small>
+                    <input type="file" name="project_zip" accept=".zip" required onchange="document.getElementById('file-name').innerHTML = '<b>' + this.files[0].name + '</b> selected';">
                 </div>
-                
-                <div>
-                    <label class="block text-sm font-bold text-slate-700 mb-2">Repository Name</label>
-                    <input type="text" name="repo_name" placeholder="e.g., retail-sales-insights" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition shadow-sm">
-                </div>
-                
-                <button type="submit" class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg transform hover:-translate-y-0.5 transition-all flex justify-center items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    Analyze, Deploy to GitHub & Post to LinkedIn
-                </button>
-            </form>
-
-            <div id="loadingState" class="hidden text-center py-12 space-y-4">
-                <div class="loader ease-linear rounded-full border-4 border-slate-200 h-16 w-16 mx-auto"></div>
-                <h3 class="text-xl font-bold text-slate-800">Processing Enterprise Pipeline...</h3>
-                <p class="text-slate-500 text-sm animate-pulse">Extracting Code ➔ Generating AI Docs ➔ Pushing to Cloud</p>
-                <p class="text-xs text-amber-600 font-semibold mt-4">Do not close or refresh this page. This may take up to 30 seconds.</p>
             </div>
             
-            <script>
-                document.getElementById('uploadForm').addEventListener('submit', function() {
-                    this.style.display = 'none';
-                    document.getElementById('loadingState').classList.remove('hidden');
-                });
-            </script>
-            {% else %}
-            <div class="text-center py-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
-                    <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8V7a4 4 0 00-8 0v4h8z"></path></svg>
-                </div>
-                <h3 class="text-lg font-bold text-slate-800">Authentication Required</h3>
-                <p class="text-slate-500 mt-2">Please connect both GitHub and LinkedIn securely above to activate the deployment engine.</p>
+            <button type="submit" class="btn btn-submit" id="submitBtn">Analyze & Publish</button>
+            
+            <div id="loading-overlay">
+                <div class="spinner"></div>
+                <div style="font-weight: 600;">AI is analyzing your project...</div>
+                <div style="font-size: 13px; margin-top: 5px;">Extracting files, calling Groq LLM, writing README, and publishing.<br>This usually takes 15-30 seconds. Please do not refresh.</div>
             </div>
-            {% endif %}
+        </form>
+        
+        <script>
+            document.getElementById('uploadForm').onsubmit = function() {
+                document.getElementById('submitBtn').style.display = 'none';
+                document.getElementById('loading-overlay').style.display = 'block';
+            };
+        </script>
+        {% else %}
+        <div style="text-align: center; padding: 30px; background: #f8fafc; border-radius: 8px; border: 1px dashed var(--border);">
+            <span style="font-size: 24px;">🔒</span><br><br>
+            <em style="color: #64748b;">Please connect both your GitHub and LinkedIn accounts above to unlock the publishing engine.</em>
         </div>
+        {% endif %}
+
+        {% if message %}
+        <div class="alert {% if 'Crash' in message or 'Error' in message or 'Failed' in message %}alert-error{% else %}alert-success{% endif %}">
+            {{ message | safe }}
+        </div>
+        {% endif %}
     </div>
 </body>
 </html>
@@ -183,19 +184,20 @@ def callback_linkedin():
 def analyze_and_share():
     try:
         if 'project_zip' not in request.files:
-            return redirect(url_for('index', message="<span class='text-red-600 font-bold'>Error:</span> No file uploaded!"))
+            return redirect(url_for('index', message="Error: No file uploaded!"))
             
         zip_file = request.files['project_zip']
         repo_name = request.form.get('repo_name')
         
         if zip_file.filename == '':
-            return redirect(url_for('index', message="<span class='text-red-600 font-bold'>Error:</span> Empty file submitted!"))
+            return redirect(url_for('index', message="Error: Empty file submitted!"))
 
         code_context = ""
         file_payloads = []
         temp_dir = tempfile.mkdtemp()
         
         try:
+            # Save and extract zip
             zip_path = os.path.join(temp_dir, secure_filename(zip_file.filename))
             zip_file.save(zip_path)
             
@@ -205,90 +207,106 @@ def analyze_and_share():
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_dir)
 
+            # Process extracted files generically
             for root, dirs, files in os.walk(extract_dir):
-                dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['venv', 'node_modules', '__pycache__', 'env']]
+                dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['venv', 'node_modules', '__pycache__', 'env', '.git']]
                 for file in files:
                     if not file.startswith('.'):
                         file_path = os.path.join(root, file)
                         rel_path = os.path.relpath(file_path, extract_dir)
                         normalized_path = rel_path.replace("\\", "/")
                         
-                        if file.lower().endswith('.pbix'):
-                            with open(file_path, 'rb') as f:
-                                binary_content = f.read()
-                            code_context += f"\n--- File Meta: {normalized_path} ---\n[CRITICAL CONTEXT: This file is a highly functional, interactive Power BI Dashboard file designed to derive business insights. Highlight its inclusion prominently as an enterprise-grade asset.]\n"
-                            file_payloads.append({"path": normalized_path, "content": base64.b64encode(binary_content).decode('utf-8')})
-                        else:
-                            try:
-                                with open(file_path, 'r', encoding='utf-8') as f:
-                                    content = f.read()
+                        # Try reading as text to give to AI
+                        is_text = False
+                        try:
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                content = f.read()
+                                is_text = True
+                                # Add up to 15k chars to AI context
                                 if len(code_context) < 15000: 
                                     code_context += f"\n--- File: {normalized_path} ---\n{content[:2000]}\n"
-                                file_payloads.append({"path": normalized_path, "content": base64.b64encode(content.encode('utf-8')).decode('utf-8')})
-                            except Exception:
-                                with open(file_path, 'rb') as f:
-                                    b_content = f.read()
-                                file_payloads.append({"path": normalized_path, "content": base64.b64encode(b_content).decode('utf-8')})
+                        except UnicodeDecodeError:
+                            # It's a binary file (image, pbix, pdf, compiled code). 
+                            # Tell AI it exists, but don't paste the gibberish.
+                            if len(code_context) < 15000:
+                                code_context += f"\n--- File Meta: {normalized_path} ---\n[CONTEXT: Binary/Media file present in architecture.]\n"
+                        
+                        # Prepare file for GitHub Upload (Read as bytes for safety)
+                        with open(file_path, 'rb') as f:
+                            b_content = f.read()
+                        file_payloads.append({
+                            "path": normalized_path, 
+                            "content": base64.b64encode(b_content).decode('utf-8')
+                        })
 
-            # 2. Analyze with Groq API (UPGRADED PROMPTS FOR HR ATTRACTION)
+            # Initialize Groq
             client = Groq(api_key=GROQ_API_KEY)
             
-            prompt_linkedin = f"""You are a top-tier Data Analytics Professional publishing a project to LinkedIn. Analyze the following files and write a highly engaging, visually stunning post.
-            CRITICAL REQUIREMENTS TO IMPRESS RECRUITERS:
-            1. Start with a powerful hook focused on "Business Value" and "Actionable Insights".
-            2. Detail the tech stack (Dataset structure + Power BI) using relevant emojis.
-            3. Present 3 specific business problems this analytics dashboard solves (use checkmarks).
-            4. Include a Call-To-Action asking data leaders for their thoughts, linking to GitHub.
-            Tone: Professional, enthusiastic, impact-driven. Do NOT use generic intro/outro text. Output only the raw post.
+            # --- AI TASK 1: LinkedIn Viral & Professional Post ---
+            prompt_linkedin = f"""You are an elite Tech Influencer and Senior Developer. Analyze the following project context and write a highly engaging, professional LinkedIn post announcing this project to your network. 
+            Rules:
+            1. Use a scroll-stopping hook (Why does this project matter?).
+            2. Use the STAR method: What was the Problem? What is your Solution? What is the technical Impact?
+            3. List the core Tech Stack clearly with corresponding emojis.
+            4. Include a Call-to-Action inviting recruiters/peers to check out the GitHub repo and share feedback.
+            5. Use formatting (line breaks, bullet points) to make it highly readable.
+            Output ONLY the raw post content. No introductory text.
             Project Context: {code_context}"""
             
             completion_li = client.chat.completions.create(model="openai/gpt-oss-20b", messages=[{"role": "user", "content": prompt_linkedin}])
             linkedin_post_content = completion_li.choices[0].message.content.strip()
 
-            prompt_readme = f"""You are a Staff Data Engineer creating an enterprise-grade README.md for a portfolio project. Analyze the context and write the markdown.
-            CRITICAL REQUIREMENTS TO IMPRESS TECHNICAL HIRING MANAGERS:
-            - Include visually appealing shields.io technology badges at the very top (e.g., Python, PowerBI, Data Science).
-            - Include a section titled '📈 Business Impact' outlining how these insights drive growth.
-            - Include a markdown 'mermaid' diagram block representing the high-level data flow (e.g., Raw Data -> Processing -> Power BI Dashboard).
-            - Detail the dataset schema and Dashboard functionalities.
-            - Provide clear, professional Setup Instructions.
-            Use extensive Markdown styling (tables, bold, blockquotes). Output STRICTLY raw Markdown.
+            # --- AI TASK 2: DevRel Grade README ---
+            prompt_readme = f"""You are a top-tier Developer Advocate. Write a world-class, highly attractive README.md for this repository.
+            Must Include:
+            - A catchy Title and 1-sentence tag-line.
+            - Markdown Badges representing the tech stack (e.g., `![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)`). Infer the tech stack from the code.
+            - 🎯 **Why This Project Exists** (Business or technical value - highly attractive to HR).
+            - 🚀 **Key Features** (Bullet points).
+            - 🏗️ **Architecture / Tech Stack Overview**.
+            - 💻 **Getting Started / Installation**.
+            Output STRICTLY raw Markdown. Do not enclose in ```markdown backticks.
             Project Context: {code_context}"""
             
             completion_readme = client.chat.completions.create(model="openai/gpt-oss-20b", messages=[{"role": "user", "content": prompt_readme}])
             readme_content = completion_readme.choices[0].message.content.strip()
             
-            # Clean up potential markdown formatting wrapping from LLM
-            if readme_content.startswith("```markdown"):
-                readme_content = readme_content[11:]
+            # Strip backticks if the model ignores instructions
             if readme_content.startswith("```"):
-                readme_content = readme_content[3:]
-            if readme_content.endswith("```"):
-                readme_content = readme_content[:-3]
-                
+                readme_content = "\n".join(readme_content.split("\n")[1:-1])
+
             file_payloads.append({"path": "README.md", "content": base64.b64encode(readme_content.encode('utf-8')).decode('utf-8')})
 
-            # 3. GitHub Upload
-            gh_headers = {"Authorization": f"token {session['github_token']}", "Accept": "application/vnd.github.v3+json"}
-            github_username = requests.get("[https://api.github.com/user](https://api.github.com/user)", headers=gh_headers).json().get("login")
+            # --- AI TASK 3: The "HR Elevator Pitch" (New Feature) ---
+            prompt_pitch = f"""You are an elite Technical Recruiter. Based on this project, write a 3-bullet-point 'Elevator Pitch' that the developer can copy-paste directly onto their Resume or Personal Portfolio website under the 'Projects' section. 
+            Focus strictly on action verbs, technical implementation, and implied results. Make it sound highly impressive to a hiring manager.
+            Output ONLY the 3 bullet points.
+            Project Context: {code_context}"""
             
-            repo_res = requests.post("[https://api.github.com/user/repos](https://api.github.com/user/repos)", headers=gh_headers, json={
+            completion_pitch = client.chat.completions.create(model="openai/gpt-oss-20b", messages=[{"role": "user", "content": prompt_pitch}])
+            pitch_content = "### RESUME / PORTFOLIO BULLET POINTS\n\n" + completion_pitch.choices[0].message.content.strip()
+            file_payloads.append({"path": "HR_ELEVATOR_PITCH.txt", "content": base64.b64encode(pitch_content.encode('utf-8')).decode('utf-8')})
+
+            # --- GitHub Upload ---
+            gh_headers = {"Authorization": f"token {session['github_token']}", "Accept": "application/vnd.github.v3+json"}
+            github_username = requests.get("https://api.github.com/user", headers=gh_headers).json().get("login")
+            
+            repo_res = requests.post("https://api.github.com/user/repos", headers=gh_headers, json={
                 "name": repo_name, 
                 "private": False,
-                "description": "Enterprise Data Analytics & Power BI Dashboard Project"
+                "description": "Project analyzed and deployed via AI Portfolio Generator"
             })
             if repo_res.status_code not in [200, 201]:
                 raise Exception(f"GitHub Repo Creation Failed: {repo_res.text}")
             repo_url = repo_res.json().get("html_url")
 
+            # Upload files
             for f_data in file_payloads:
-                put_res = requests.put(f"[https://api.github.com/repos/](https://api.github.com/repos/){github_username}/{repo_name}/contents/{f_data['path']}", headers=gh_headers, json={"message": f"Deploy {f_data['path']} via AutoPublisher AI", "content": f_data['content']})
-                if put_res.status_code not in [200, 201]:
-                    print(f"Failed to upload {f_data['path']}: {put_res.text}")
+                requests.put(f"https://api.github.com/repos/{github_username}/{repo_name}/contents/{f_data['path']}", headers=gh_headers, json={"message": f"Auto-Commit: {f_data['path']}", "content": f_data['content']})
 
-            # 4. LinkedIn Post
+            # --- LinkedIn Post ---
             li_headers = {"Authorization": f"Bearer {session['linkedin_token']}"}
-            linkedin_urn = requests.get("[https://api.linkedin.com/v2/userinfo](https://api.linkedin.com/v2/userinfo)", headers=li_headers).json().get("sub")
+            linkedin_urn = requests.get("https://api.linkedin.com/v2/userinfo", headers=li_headers).json().get("sub")
 
             post_payload = {
                 "author": f"urn:li:person:{linkedin_urn}",
@@ -302,29 +320,20 @@ def analyze_and_share():
                 },
                 "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
             }
-            li_res = requests.post("[https://api.linkedin.com/v2/ugcPosts](https://api.linkedin.com/v2/ugcPosts)", headers={**li_headers, "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0"}, json=post_payload)
+            li_res = requests.post("https://api.linkedin.com/v2/ugcPosts", headers={**li_headers, "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0"}, json=post_payload)
             if li_res.status_code != 201:
-                print(f"LinkedIn Post Failed: {li_res.text}")
+                print(f"LinkedIn Post Warning: {li_res.text}")
 
-            success_msg = f"""
-            <div class='flex items-center gap-3 text-green-700'>
-                <svg class='w-8 h-8' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg>
-                <div>
-                    <h4 class='font-bold text-lg'>Enterprise Deployment Successful!</h4>
-                    <p class='text-sm mt-1'>Check your stunning new repo: <a href='{repo_url}' target='_blank' class='underline font-bold hover:text-green-900'>{repo_url}</a></p>
-                    <p class='text-sm'>Your professional LinkedIn post is now live!</p>
-                </div>
-            </div>
-            """
+            success_msg = f"<b>🎉 Boom! Successfully Published.</b><br><br><b>1. GitHub Repo:</b> <a href='{repo_url}' target='_blank'>{repo_url}</a><br><b>2. Resume Elevator Pitch:</b> Generated & saved in your repo.<br><b>3. LinkedIn:</b> Post published to your feed!"
             
         finally:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            shutil.rmtree(temp_dir, ignore_errors=True) # Always clean up Vercel storage
 
         return redirect(url_for('index', message=success_msg))
 
     except Exception as e:
         print("APP CRASHED:", traceback.format_exc())
-        error_html = f"<span style='color:#dc2626;'><b>System Crash:</b> {str(e)}</span><br><br><span class='text-xs'>Check Vercel Runtime Logs for full details. Ensure requirements.txt is updated.</span>"
+        error_html = f"<b>System Crash:</b> {str(e)}<br><br>Check Vercel Runtime Logs."
         return redirect(url_for('index', message=error_html))
 
 if __name__ == '__main__':
