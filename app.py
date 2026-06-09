@@ -1,4 +1,3 @@
-import traceback
 import os
 import base64
 import requests
@@ -117,133 +116,133 @@ def callback_linkedin():
                                    "redirect_uri": callback_url})
     session['linkedin_token'] = response.json().get('access_token')
     return redirect(url_for('index'))
-    
+
+# --- Main Logic: Extract, Analyze, Upload, Post ---
 @app.route('/analyze-and-share', methods=['POST'])
 def analyze_and_share():
+    if 'project_zip' not in request.files:
+        return redirect(url_for('index', message="No file uploaded!"))
+        
+    zip_file = request.files['project_zip']
+    repo_name = request.form.get('repo_name')
+    
+    if zip_file.filename == '':
+        return redirect(url_for('index', message="Empty file submitted!"))
+
+    code_context = ""
+    file_payloads = []
+    
+    # Create a temporary directory that Vercel allows us to write to
+    temp_dir = tempfile.mkdtemp()
+    
     try:
-        if 'project_zip' not in request.files:
-            return redirect(url_for('index', message="No file uploaded!"))
-            
-        zip_file = request.files['project_zip']
-        repo_name = request.form.get('repo_name')
+        # Save and extract the zip file
+        zip_path = os.path.join(temp_dir, secure_filename(zip_file.filename))
+        zip_file.save(zip_path)
         
-        if zip_file.filename == '':
-            return redirect(url_for('index', message="Empty file submitted!"))
-
-        code_context = ""
-        file_payloads = []
-        temp_dir = tempfile.mkdtemp()
+        extract_dir = os.path.join(temp_dir, "extracted")
+        os.makedirs(extract_dir, exist_ok=True)
         
-        try:
-            # Save and extract the zip file
-            zip_path = os.path.join(temp_dir, secure_filename(zip_file.filename))
-            zip_file.save(zip_path)
-            
-            extract_dir = os.path.join(temp_dir, "extracted")
-            os.makedirs(extract_dir, exist_ok=True)
-            
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_dir)
 
-            # Walk through the extracted files
-            for root, dirs, files in os.walk(extract_dir):
-                dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['venv', 'node_modules', '__pycache__', 'env']]
-                for file in files:
-                    if not file.startswith('.'):
-                        file_path = os.path.join(root, file)
-                        rel_path = os.path.relpath(file_path, extract_dir)
-                        normalized_path = rel_path.replace("\\", "/")
-                        
-                        if file.lower().endswith('.pbix'):
+        # Walk through the extracted files
+        for root, dirs, files in os.walk(extract_dir):
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['venv', 'node_modules', '__pycache__', 'env']]
+            for file in files:
+                if not file.startswith('.'):
+                    file_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(file_path, extract_dir)
+                    normalized_path = rel_path.replace("\\", "/")
+                    
+                    if file.lower().endswith('.pbix'):
+                        try:
                             with open(file_path, 'rb') as f:
                                 binary_content = f.read()
                             code_context += f"\n--- File Meta: {normalized_path} ---\n[CRITICAL CONTEXT: This file is a functional, interactive Power BI Dashboard file. Highlight its inclusion prominently.]\n"
                             file_payloads.append({"path": normalized_path, "content": base64.b64encode(binary_content).decode('utf-8')})
-                        else:
+                        except Exception as e:
+                            print(f"Error reading pbix: {e}")
+                    else:
+                        try:
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                content = f.read()
+                            if len(code_context) < 15000: 
+                                code_context += f"\n--- File: {normalized_path} ---\n{content[:2000]}\n"
+                            file_payloads.append({"path": normalized_path, "content": base64.b64encode(content.encode('utf-8')).decode('utf-8')})
+                        except Exception:
                             try:
-                                with open(file_path, 'r', encoding='utf-8') as f:
-                                    content = f.read()
-                                if len(code_context) < 15000: 
-                                    code_context += f"\n--- File: {normalized_path} ---\n{content[:2000]}\n"
-                                file_payloads.append({"path": normalized_path, "content": base64.b64encode(content.encode('utf-8')).decode('utf-8')})
-                            except Exception:
                                 with open(file_path, 'rb') as f:
                                     b_content = f.read()
                                 file_payloads.append({"path": normalized_path, "content": base64.b64encode(b_content).decode('utf-8')})
+                            except Exception:
+                                pass
 
-            # 2. Analyze with Groq API
-            client = Groq(api_key=GROQ_API_KEY)
-            
-            prompt_linkedin = f"""You are an expert data analyst and a viral tech influencer on LinkedIn. Analyze the following project files and context, then write a highly engaging, visually stunning LinkedIn post announcing this project. Focus on:
-            1. A powerful, scroll-stopping hook at the top highlighting the data insights.
-            2. The complete tech stack (including Dataset structure and Power BI).
-            3. Core problem solved and key metrics.
-            4. Call-to-action to check the GitHub repository.
-            Use emojis, line breaks, and hashtags. Output only the raw post.
-            Project Context: {code_context}"""
-            
-            completion_li = client.chat.completions.create(model="llama3-70b-8192", messages=[{"role": "user", "content": prompt_linkedin}])
-            linkedin_post_content = completion_li.choices[0].message.content.strip()
+        # 2. Analyze with Groq API
+        client = Groq(api_key=GROQ_API_KEY)
+        
+        prompt_linkedin = f"""You are an expert data analyst and a viral tech influencer on LinkedIn. Analyze the following project files and context, then write a highly engaging, visually stunning LinkedIn post announcing this project. Focus on:
+        1. A powerful, scroll-stopping hook at the top highlighting the data insights.
+        2. The complete tech stack (including Dataset structure and Power BI).
+        3. Core problem solved and key metrics.
+        4. Call-to-action to check the GitHub repository.
+        Use emojis, line breaks, and hashtags. Output only the raw post.
+        Project Context: {code_context}"""
+        
+        completion_li = client.chat.completions.create(model="openai/gpt-oss-20b", messages=[{"role": "user", "content": prompt_linkedin}])
+        linkedin_post_content = completion_li.choices[0].message.content.strip()
 
-            prompt_readme = f"""You are a professional data visualization engineer. Write a highly attractive, comprehensive README.md for this repository. Include:
-            - Title & Overview
-            - 📊 Dashboard Insights & Features (Detail the Power BI report based on context).
-            - 📁 Dataset Description
-            - 🛠️ Tech Stack
-            - ⚙️ Setup Instructions
-            Use Markdown styling. Output strictly raw Markdown.
-            Project Context: {code_context}"""
-            
+        prompt_readme = f"""You are a professional data visualization engineer. Write a highly attractive, comprehensive README.md for this repository. Include:
+        - Title & Overview
+        - 📊 Dashboard Insights & Features (Detail the Power BI report based on context).
+        - 📁 Dataset Description
+        - 🛠️ Tech Stack
+        - ⚙️ Setup Instructions
+        Use Markdown styling. Output strictly raw Markdown.
+        Project Context: {code_context}"""
+        
+        try:
             completion_readme = client.chat.completions.create(model="llama3-70b-8192", messages=[{"role": "user", "content": prompt_readme}])
             readme_content = completion_readme.choices[0].message.content.strip()
             file_payloads.append({"path": "README.md", "content": base64.b64encode(readme_content.encode('utf-8')).decode('utf-8')})
+        except Exception as e:
+            print(f"Readme error: {e}")
 
-            # 3. GitHub Upload
-            gh_headers = {"Authorization": f"token {session['github_token']}", "Accept": "application/vnd.github.v3+json"}
-            github_username = requests.get("https://api.github.com/user", headers=gh_headers).json().get("login")
-            
-            repo_res = requests.post("https://api.github.com/user/repos", headers=gh_headers, json={"name": repo_name, "private": False})
-            if repo_res.status_code not in [200, 201]:
-                raise Exception(f"GitHub Repo Creation Failed: {repo_res.text}")
-            repo_url = repo_res.json().get("html_url")
+        # 3. GitHub Upload
+        gh_headers = {"Authorization": f"token {session['github_token']}", "Accept": "application/vnd.github.v3+json"}
+        github_username = requests.get("https://api.github.com/user", headers=gh_headers).json().get("login")
+        
+        repo_res = requests.post("https://api.github.com/user/repos", headers=gh_headers, json={"name": repo_name, "private": False})
+        repo_url = repo_res.json().get("html_url")
 
-            for f_data in file_payloads:
-                put_res = requests.put(f"https://api.github.com/repos/{github_username}/{repo_name}/contents/{f_data['path']}", headers=gh_headers, json={"message": f"Upload {f_data['path']}", "content": f_data['content']})
-                if put_res.status_code not in [200, 201]:
-                    print(f"Failed to upload {f_data['path']}: {put_res.text}")
+        for f_data in file_payloads:
+            requests.put(f"https://api.github.com/repos/{github_username}/{repo_name}/contents/{f_data['path']}", headers=gh_headers, json={"message": f"Upload {f_data['path']}", "content": f_data['content']})
 
-            # 4. LinkedIn Post
-            li_headers = {"Authorization": f"Bearer {session['linkedin_token']}"}
-            linkedin_urn = requests.get("https://api.linkedin.com/v2/userinfo", headers=li_headers).json().get("sub")
+        # 4. LinkedIn Post
+        li_headers = {"Authorization": f"Bearer {session['linkedin_token']}"}
+        linkedin_urn = requests.get("https://api.linkedin.com/v2/userinfo", headers=li_headers).json().get("sub")
 
-            post_payload = {
-                "author": f"urn:li:person:{linkedin_urn}",
-                "lifecycleState": "PUBLISHED",
-                "specificContent": {
-                    "com.linkedin.ugc.ShareContent": {
-                        "shareCommentary": {"text": linkedin_post_content},
-                        "shareMediaCategory": "ARTICLE",
-                        "media": [{"status": "READY", "originalUrl": repo_url}]
-                    }
-                },
-                "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
-            }
-            li_res = requests.post("https://api.linkedin.com/v2/ugcPosts", headers={**li_headers, "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0"}, json=post_payload)
-            if li_res.status_code != 201:
-                print(f"LinkedIn Post Failed: {li_res.text}")
+        post_payload = {
+            "author": f"urn:li:person:{linkedin_urn}",
+            "lifecycleState": "PUBLISHED",
+            "specificContent": {
+                "com.linkedin.ugc.ShareContent": {
+                    "shareCommentary": {"text": linkedin_post_content},
+                    "shareMediaCategory": "ARTICLE",
+                    "media": [{"status": "READY", "originalUrl": repo_url}]
+                }
+            },
+            "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
+        }
+        requests.post("https://api.linkedin.com/v2/ugcPosts", headers={**li_headers, "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0"}, json=post_payload)
 
-            success_msg = f"<b>Success!</b><br>Repository created: <a href='{repo_url}'>{repo_url}</a><br>LinkedIn Post published!"
-            
-        finally:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+        success_msg = f"<b>Success!</b><br>Repository created: <a href='{repo_url}'>{repo_url}</a><br>LinkedIn Post published!"
+        
+    finally:
+        # Clean up the temporary Vercel directory to prevent memory leaks
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
-        return redirect(url_for('index', message=success_msg))
-
-    except Exception as e:
-        # THIS IS THE MAGIC BULLET: It catches the crash and prints the exact reason
-        print("APP CRASHED:", traceback.format_exc())
-        error_html = f"<span style='color:red;'><b>System Crash:</b> {str(e)}</span><br><br>Check Vercel Runtime Logs for full details."
-        return redirect(url_for('index', message=error_html))
+    return redirect(url_for('index', message=success_msg))
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
